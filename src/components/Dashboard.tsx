@@ -128,6 +128,7 @@ const Dashboard: React.FC<DashboardProps> = ({ account, onUseWallet }) => {
       const energyListings: EnergyListing[] = [];
       const energyEvents = await contract.queryFilter(contract.filters.EnergyListed(), 0, 'latest');
       const sellers = new Set<string>();
+      sellers.add(account);
       for (const event of energyEvents) {
         const seller = (event as ethers.EventLog).args?.[0] as string | undefined;
         if (seller) sellers.add(seller);
@@ -178,7 +179,7 @@ const Dashboard: React.FC<DashboardProps> = ({ account, onUseWallet }) => {
       setToast(`Confirmed in MetaMask: ${tx.hash.slice(0, 10)}...`);
 
       // Reload data
-      loadBlockchainData();
+      await loadBlockchainData();
       
       // Reset form
       setCreditAmount('');
@@ -209,7 +210,7 @@ const Dashboard: React.FC<DashboardProps> = ({ account, onUseWallet }) => {
       setToast(`Confirmed in MetaMask: ${tx.hash.slice(0, 10)}...`);
 
       // Reload data
-      loadBlockchainData();
+      await loadBlockchainData();
     } catch (error) {
       console.error('Error buying credits:', error);
       alert('Error buying credits. Please check the console for details.');
@@ -238,11 +239,18 @@ const Dashboard: React.FC<DashboardProps> = ({ account, onUseWallet }) => {
 
       const tx = await contract.listEnergy(amount, price);
       await tx.wait();
+      setAvailableEnergy(prev => [{
+        id: account,
+        seller: account,
+        amount: Number(energyAmount),
+        price: Number(energyPrice),
+        carbonCredits: Math.floor(Number(energyAmount) / 100)
+      }, ...prev.filter(listing => listing.seller !== account)]);
       setTransactions(prev => [{ id: tx.hash, title: 'Energy listed on-chain', detail: `${energyAmount} kWh at ${energyPrice} ETH`, amount: 'Confirmed', time: 'Just now', status: 'Completed', hash: tx.hash }, ...prev]);
       setToast(`Confirmed in MetaMask: ${tx.hash.slice(0, 10)}...`);
 
       // Reload data
-      loadBlockchainData();
+      await loadBlockchainData();
       
       // Reset form
       setEnergyAmount('');
@@ -275,7 +283,7 @@ const Dashboard: React.FC<DashboardProps> = ({ account, onUseWallet }) => {
       setToast(`Confirmed in MetaMask: ${tx.hash.slice(0, 10)}...`);
 
       // Reload data
-      loadBlockchainData();
+      await loadBlockchainData();
     } catch (error) {
       console.error('Error buying energy:', error);
       alert('Error buying energy. Please check the console for details.');

@@ -3,7 +3,7 @@ import MetaMaskConnect from './components/MetaMaskConnect';
 import Dashboard from './components/Dashboard';
 
 function App() {
-  const [account, setAccount] = useState<string | null>(null);
+  const [account, setAccount] = useState<string | null>('demo-account');
 
   const handleConnect = (connectedAccount: string) => {
     setAccount(connectedAccount);
@@ -14,7 +14,7 @@ function App() {
       {!account ? (
         <MetaMaskConnect onConnect={handleConnect} />
       ) : (
-        <Dashboard account={account} />
+        <Dashboard account={account} onUseWallet={() => setAccount(null)} />
       )}
     </div>
   );

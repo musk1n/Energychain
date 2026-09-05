@@ -25,7 +25,8 @@ const MetaMaskConnect: React.FC<MetaMaskConnectProps> = ({ onConnect }) => {
         <div className="text-center">
           <WalletIcon className="w-16 h-16 mx-auto text-green-500 mb-4" />
           <h1 className="text-3xl font-bold text-gray-800 mb-2">Welcome to EnergyGrid</h1>
-          <p className="text-gray-600 mb-6">Connect your wallet to start trading renewable energy</p>
+          <p className="text-gray-600 mb-2">Connect your wallet to trade renewable energy with real Sepolia transactions.</p>
+          <p className="text-sm text-gray-500 mb-6">You need a small amount of Sepolia ETH for gas. Faucet steps are included below the demo.</p>
           <button
             onClick={connectWallet}
             className="w-full bg-green-500 text-white py-3 px-6 rounded-lg font-semibold hover:bg-green-600 transition-colors"

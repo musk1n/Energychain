@@ -23,14 +23,15 @@ contract EnergyTrading {
         bool isAvailable;
     }
 
-    mapping(address => EnergyData) public energyListings;
+    mapping(uint256 => EnergyData) public energyListings;
     mapping(address => SmartMeterData[]) public meterReadings;
     mapping(address => uint256) public carbonCredits;
     mapping(uint256 => CarbonCreditListing) public carbonCreditListings;
     uint256 public nextCreditListingId;
+    uint256 public nextEnergyListingId;
 
-    event EnergyListed(address indexed prosumer, uint256 amount, uint256 price);
-    event EnergyPurchased(address indexed buyer, address indexed seller, uint256 amount);
+    event EnergyListed(address indexed prosumer, uint256 amount, uint256 price, uint256 listingId);
+    event EnergyPurchased(address indexed buyer, address indexed seller, uint256 amount, uint256 listingId);
     event MeterDataUpdated(address indexed prosumer, uint256 consumption, uint256 generation);
     event CarbonCreditsListed(address indexed seller, uint256 amount, uint256 price, uint256 listingId);
     event CarbonCreditsPurchased(address indexed buyer, address indexed seller, uint256 amount, uint256 listingId);
@@ -39,27 +40,29 @@ contract EnergyTrading {
         require(_amount > 0, "Amount must be greater than 0");
         require(_price > 0, "Price must be greater than 0");
         
-        energyListings[msg.sender] = EnergyData({
+        uint256 listingId = nextEnergyListingId;
+        energyListings[listingId] = EnergyData({
             prosumer: msg.sender,
             energyAmount: _amount,
             price: _price,
             carbonCredits: calculateCarbonCredits(_amount),
             isAvailable: true
         });
+        nextEnergyListingId++;
         
-        emit EnergyListed(msg.sender, _amount, _price);
+        emit EnergyListed(msg.sender, _amount, _price, listingId);
     }
 
-    function purchaseEnergy(address _seller) public payable {
-        EnergyData storage listing = energyListings[_seller];
+    function purchaseEnergy(uint256 _listingId) public payable {
+        EnergyData storage listing = energyListings[_listingId];
         require(listing.isAvailable, "Energy not available");
         require(msg.value >= listing.price, "Insufficient payment");
 
         listing.isAvailable = false;
         carbonCredits[msg.sender] += listing.carbonCredits;
         
-        payable(_seller).transfer(msg.value);
-        emit EnergyPurchased(msg.sender, _seller, listing.energyAmount);
+        payable(listing.prosumer).transfer(msg.value);
+        emit EnergyPurchased(msg.sender, listing.prosumer, listing.energyAmount, _listingId);
     }
 
     function listCarbonCredits(uint256 _amount, uint256 _price) public {

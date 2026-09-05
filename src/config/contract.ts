@@ -1,4 +1,4 @@
-export const CONTRACT_ADDRESS = "0xda66Afe5Dd5c7eB949E583A300a07941F3743306";
+export const CONTRACT_ADDRESS = "0xc5f868D914B8B73DaA4FF9894F378205483b36D7";
 export const CONTRACT_ABI = [
 	{
 		"anonymous": false,
@@ -424,6 +424,33 @@ export const CONTRACT_ABI = [
 			}
 		],
 		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "nextEnergyListingId",
+		"outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+		"name": "energyListings",
+		"outputs": [
+			{ "internalType": "address", "name": "prosumer", "type": "address" },
+			{ "internalType": "uint256", "name": "energyAmount", "type": "uint256" },
+			{ "internalType": "uint256", "name": "price", "type": "uint256" },
+			{ "internalType": "uint256", "name": "carbonCredits", "type": "uint256" },
+			{ "internalType": "bool", "name": "isAvailable", "type": "bool" }
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [{ "internalType": "uint256", "name": "_listingId", "type": "uint256" }],
+		"name": "purchaseEnergy",
+		"outputs": [],
+		"stateMutability": "payable",
 		"type": "function"
 	}
 ];

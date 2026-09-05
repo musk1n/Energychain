@@ -111,6 +111,18 @@ Start the development server:
 ```bash
 npm run dev
 ```
+
+### Energy listing contract update
+
+Energy listings use numeric listing IDs so one wallet can publish multiple listings. The updated source is in `src/contracts/EnergyTrading.sol`. Because deployed Solidity code cannot be changed, deploy this updated contract before testing live multi-listing behavior:
+
+1. Open `src/contracts/EnergyTrading.sol` in Remix and compile it with Solidity `0.8.x`.
+2. In **Deploy & Run Transactions**, choose **Injected Provider - MetaMask**, select **Sepolia**, and deploy `EnergyTrading`.
+3. Copy the new contract address into `src/config/contract.ts` as `CONTRACT_ADDRESS`.
+4. Make sure the generated ABI in `CONTRACT_ABI` matches the updated contract, then restart Vite.
+
+The old address uses `mapping(address => EnergyData)`, which intentionally allowed only one listing per wallet. The new contract uses `mapping(uint256 => EnergyData)` and `nextEnergyListingId`, so each listing is independent. Purchased listings disappear from the available market because the contract marks only that listing ID unavailable.
+
 ## dApp demo
 
 ### Watch the Video

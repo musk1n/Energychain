@@ -126,19 +126,13 @@ const Dashboard: React.FC<DashboardProps> = ({ account, onUseWallet }) => {
       setAvailableCredits(listings);
 
       const energyListings: EnergyListing[] = [];
-      const energyEvents = await contract.queryFilter(contract.filters.EnergyListed(), 0, 'latest');
-      const sellers = new Set<string>();
-      sellers.add(account);
-      for (const event of energyEvents) {
-        const seller = (event as ethers.EventLog).args?.[0] as string | undefined;
-        if (seller) sellers.add(seller);
-      }
-      for (const seller of sellers) {
-        const listing = await contract.energyListings(seller);
+      const nextEnergyListingId = await contract.nextEnergyListingId();
+      for (let i = 0n; i < nextEnergyListingId; i++) {
+        const listing = await contract['energyListings(uint256)'](i);
         if (listing.isAvailable) {
           energyListings.push({
-            id: seller,
-            seller,
+            id: i.toString(),
+            seller: listing.prosumer,
             amount: Number(listing.energyAmount),
             price: Number(ethers.formatEther(listing.price)),
             carbonCredits: Number(listing.carbonCredits)
@@ -261,14 +255,12 @@ const Dashboard: React.FC<DashboardProps> = ({ account, onUseWallet }) => {
     }
   };
 
-  const handleBuyEnergy = async (seller: string) => {
+  const handleBuyEnergy = async (energyListing: EnergyListing) => {
     if (isDemo) {
-      const listing = availableEnergy.find(item => item.seller === seller);
-      if (!listing) return;
-      setAvailableEnergy(prev => prev.filter(item => item.id !== listing.id));
-      setMeterData(prev => ({ ...prev, carbonCredits: prev.carbonCredits + listing.carbonCredits }));
-      setTransactions(prev => [{ id: `tx-${Date.now()}`, title: 'Energy purchased', detail: `${listing.amount} kWh from ${listing.seller}`, amount: `- ${listing.price} ETH`, time: 'Just now', status: 'Completed' }, { id: `tx-credit-${Date.now()}`, title: 'Carbon credits earned', detail: 'Verified renewable energy', amount: `+ ${listing.carbonCredits} credits`, time: 'Just now', status: 'Completed' }, ...prev]);
-      setToast(`${listing.amount} kWh purchased and meter updated`);
+      setAvailableEnergy(prev => prev.filter(item => item.id !== energyListing.id));
+      setMeterData(prev => ({ ...prev, carbonCredits: prev.carbonCredits + energyListing.carbonCredits }));
+      setTransactions(prev => [{ id: `tx-${Date.now()}`, title: 'Energy purchased', detail: `${energyListing.amount} kWh from ${energyListing.seller}`, amount: `- ${energyListing.price} ETH`, time: 'Just now', status: 'Completed' }, { id: `tx-credit-${Date.now()}`, title: 'Carbon credits earned', detail: 'Verified renewable energy', amount: `+ ${energyListing.carbonCredits} credits`, time: 'Just now', status: 'Completed' }, ...prev]);
+      setToast(`${energyListing.amount} kWh purchased and meter updated`);
       return;
     }
     try {
@@ -276,10 +268,11 @@ const Dashboard: React.FC<DashboardProps> = ({ account, onUseWallet }) => {
       const signer = await provider.getSigner();
       const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
 
-      const listing = await contract.energyListings(seller);
-      const tx = await contract.purchaseEnergy(seller, { value: listing.price });
+      const listing = await contract['energyListings(uint256)'](energyListing.id);
+      const tx = await contract['purchaseEnergy(uint256)'](energyListing.id, { value: listing.price });
       await tx.wait();
-      setTransactions(prev => [{ id: tx.hash, title: 'Energy purchased on-chain', detail: `${listing.energyAmount} kWh from ${seller}`, amount: `- ${ethers.formatEther(listing.price)} ETH`, time: 'Just now', status: 'Completed', hash: tx.hash }, ...prev]);
+      setAvailableEnergy(prev => prev.filter(item => item.id !== energyListing.id));
+      setTransactions(prev => [{ id: tx.hash, title: 'Energy purchased on-chain', detail: `${listing.energyAmount} kWh from ${energyListing.seller}`, amount: `- ${ethers.formatEther(listing.price)} ETH`, time: 'Just now', status: 'Completed', hash: tx.hash }, ...prev]);
       setToast(`Confirmed in MetaMask: ${tx.hash.slice(0, 10)}...`);
 
       // Reload data
@@ -482,7 +475,7 @@ const Dashboard: React.FC<DashboardProps> = ({ account, onUseWallet }) => {
                     <div className="flex justify-between items-center">
                       <span className="font-medium">{listing.amount} kWh Available</span>
                       <button
-                        onClick={() => handleBuyEnergy(listing.seller)}
+                        onClick={() => handleBuyEnergy(listing)}
                         className="bg-green-600 text-white py-1 px-4 rounded-md hover:bg-green-700 transition-colors text-sm"
                       >
                         Buy Energy

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LineChart, Battery, Zap, Coins, ArrowLeftRight, TrendingUp, ShieldCheck } from 'lucide-react';
+import { LineChart, Battery, Zap, Coins, ArrowLeftRight, TrendingUp, ShieldCheck, Sparkles, Target, ArrowUpRight } from 'lucide-react';
 import { getSmartMeterData } from '../utils/mockIoT';
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from '../config/contract';
 import { ethers } from 'ethers';
@@ -67,6 +67,27 @@ const Dashboard: React.FC<DashboardProps> = ({ account, onUseWallet }) => {
   const [transactions, setTransactions] = useState<Transaction[]>(demoTransactions);
   const [toast, setToast] = useState('');
   const isDemo = account === 'demo-account';
+  const energyBalance = meterData.generation - meterData.consumption;
+  const hasSurplus = energyBalance >= 0;
+  const bestEnergyMatch = availableEnergy.length > 0
+    ? [...availableEnergy].sort((first, second) => (first.price / first.amount) - (second.price / second.amount))[0]
+    : undefined;
+  const smartAmount = hasSurplus ? Math.max(energyBalance, 1) : Math.abs(energyBalance);
+
+  const handleSmartMatch = () => {
+    if (hasSurplus) {
+      setEnergyAmount(smartAmount.toString());
+      setEnergyPrice('0.05');
+      setToast(`Smart listing prepared for ${smartAmount} kWh surplus`);
+      document.getElementById('energy-trading')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    if (bestEnergyMatch) {
+      handleBuyEnergy(bestEnergyMatch);
+      return;
+    }
+    setToast('No matching energy is available yet. Check back after the next listing.');
+  };
 
   useEffect(() => {
     const updateMeterData = () => {
@@ -325,8 +346,24 @@ const Dashboard: React.FC<DashboardProps> = ({ account, onUseWallet }) => {
           </div>
         </div>
 
+        <section className="mt-8 overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-950 via-teal-900 to-slate-900 p-6 text-white shadow-xl">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div className="max-w-2xl">
+              <div className="mb-3 flex items-center gap-2 text-emerald-300"><Sparkles size={18} /><span className="text-xs font-black uppercase tracking-[0.2em]">Smart Grid Match</span></div>
+              <h2 className="text-2xl font-black sm:text-3xl">{hasSurplus ? `You have ${smartAmount} kWh to share.` : `You need ${smartAmount} kWh to stay green.`}</h2>
+              <p className="mt-2 text-sm leading-6 text-emerald-100/75">Based on your live meter balance, GridSpring recommends the next best market action instead of making you search through every listing.</p>
+              <div className="mt-5 flex flex-wrap gap-3 text-xs font-bold"><span className="rounded-full bg-white/10 px-3 py-2">{hasSurplus ? 'Surplus detected' : 'Shortfall detected'}</span><span className="rounded-full bg-white/10 px-3 py-2">{(smartAmount * 0.42).toFixed(1)} kg CO₂ impact</span>{bestEnergyMatch && <span className="rounded-full bg-white/10 px-3 py-2">Best rate: {(bestEnergyMatch.price / bestEnergyMatch.amount).toFixed(5)} ETH/kWh</span>}</div>
+            </div>
+            <div className="min-w-[230px] rounded-2xl border border-white/15 bg-white/10 p-5 backdrop-blur-sm">
+              <div className="mb-4 flex items-center justify-between"><Target className="text-emerald-300" size={22} /><span className="text-xs font-bold text-emerald-200">MATCH SCORE</span></div>
+              <div className="mb-3 flex items-end gap-2"><span className="text-5xl font-black">{bestEnergyMatch ? '94' : hasSurplus ? '88' : '—'}</span><span className="pb-1 text-sm text-emerald-200">/ 100</span></div>
+              <button onClick={handleSmartMatch} className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-400 px-4 py-3 text-sm font-black text-emerald-950 transition hover:bg-emerald-300"><ArrowUpRight size={17} /> {hasSurplus ? 'Prepare smart listing' : 'Take smart match'}</button>
+            </div>
+          </div>
+        </section>
+
         {/* Carbon Credit Trading Platform */}
-        <div className="mt-8 bg-white rounded-xl shadow-md p-6">
+        <div id="energy-trading" className="mt-8 bg-white rounded-xl shadow-md p-6">
           <div className="flex items-center mb-6">
             <ArrowLeftRight className="w-6 h-6 text-purple-500 mr-2" />
             <h2 className="text-2xl font-bold">Carbon Credit Trading</h2>

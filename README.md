@@ -1,6 +1,6 @@
 # EnergyChain Project
 
-Deployed on: [🔗](https://webss-ashy.vercel.app/) [webss-ashy.vercel.app](https://webss-ashy.vercel.app/)
+Deployed on: [🔗](https://energychain-omega.vercel.app/) [energychain-omega.vercel.app](https://energychain-omega.vercel.app/)
 
 
 ## 🚀 Overview

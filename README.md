@@ -162,7 +162,7 @@ This makes the relationship between a physical reading and a later energy trade 
 ### 🚨 Emergency Grid Alerts
 <img width="1313" height="245" alt="image" src="https://github.com/user-attachments/assets/db9743c0-d88c-40ef-9b98-614b2dd5b715" />
 <img width="1336" height="666" alt="image" src="https://github.com/user-attachments/assets/4c5a8600-4e2a-43ed-b05b-dbef08f7696b" />
-<img width="717" height="1600" alt="WhatsApp Image 2026-09-06 at 5 45 13 PM" src="https://github.com/user-attachments/assets/759f7499-a2b7-4b78-a2d3-322b28fe1e01" />
+<img width="70" height="200" alt="WhatsApp Image 2026-09-06 at 5 45 13 PM" src="https://github.com/user-attachments/assets/759f7499-a2b7-4b78-a2d3-322b28fe1e01" />
 
 The dashboard includes a critical-peak simulator. It prepares a valid whole-kWh recommendation of `3 kWh` at `0.05 Sepolia ETH` and records the emergency event in dashboard activity.
 

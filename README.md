@@ -53,8 +53,13 @@ The application opens in demo mode so the complete product can be presented with
 Demo actions update React state only. They do not create blockchain transactions.
 
 Use **Use MetaMask** to leave demo mode and use the real Sepolia flow.
+<img width="1338" height="676" alt="image" src="https://github.com/user-attachments/assets/c49c7798-0560-4b77-a69d-072a590a30a4" />
+
 
 ### 🦊 MetaMask and Sepolia
+<img width="1350" height="676" alt="image" src="https://github.com/user-attachments/assets/b8571e42-3d2d-4c7b-b4f9-f3dc463ff934" />
+<img width="1359" height="675" alt="image" src="https://github.com/user-attachments/assets/76b07830-9818-4291-8e2d-eaf68318ab63" />
+<img width="1356" height="680" alt="image" src="https://github.com/user-attachments/assets/6645ea89-2da9-42bb-933e-aa72c61d5f2e" />
 
 The live dashboard connects to MetaMask through `ethers.js`. It validates the Sepolia network before submitting transactions.
 
@@ -67,10 +72,13 @@ Live transactions include:
 - Recording smart-meter data.
 
 Every confirmed action appears in Recent Activity with its transaction hash.
+<img width="1356" height="670" alt="image" src="https://github.com/user-attachments/assets/d59b07f9-0353-42a6-b5b0-4e0b966fca1e" />
+
 
 ### ⚡ Multi-Listing Energy Marketplace
 
 Energy listings use numeric IDs rather than wallet addresses. This matters because one wallet can publish multiple independent listings.
+<img width="1220" height="628" alt="image" src="https://github.com/user-attachments/assets/f16e6f9a-1b25-41c5-9688-398653712c4b" />
 
 The contract stores listings using:
 
@@ -82,6 +90,7 @@ uint256 public nextEnergyListingId;
 Buying one listing marks only that listing unavailable. Other sellers and other listings remain available.
 
 ### 🌱 Carbon Credits
+<img width="1330" height="673" alt="image" src="https://github.com/user-attachments/assets/eabb8c1e-4400-479e-a037-6db259b35e4c" />
 
 When energy is purchased, the buyer receives carbon credits calculated by the contract. Credits can then be listed and purchased in a separate marketplace.
 
@@ -94,6 +103,7 @@ energyAmount / 100
 This demonstrates the trading flow. It is not an environmental certification standard.
 
 ### ✨ Smart Grid Match
+<img width="1327" height="263" alt="image" src="https://github.com/user-attachments/assets/ee8937dc-1cb6-4f70-95b8-23d823a2f80b" />
 
 Smart Grid Match compares generation and consumption:
 
@@ -106,6 +116,8 @@ Smart Grid Match compares generation and consumption:
 This is the foundation for an energy-management agent that could later use real IoT telemetry, market prices, and user preferences.
 
 ### 📷 Camera Meter Scanner
+<img width="1324" height="662" alt="image" src="https://github.com/user-attachments/assets/57edc287-a3ae-4197-9c57-3be541323e2c" />
+<img width="1335" height="291" alt="image" src="https://github.com/user-attachments/assets/5795fe4a-9fad-4b45-a433-4cc0370d2309" />
 
 The dashboard can open a phone camera or accept a meter photo. `tesseract.js` performs OCR locally in the browser.
 
@@ -124,6 +136,7 @@ The image is not uploaded by the scanner. The confirmed value can then be record
 Camera OCR is an input assistant, not a trusted oracle. A blurry display, glare, or a fabricated screen can produce a wrong value. Production hardware should sign readings or expose a signed QR payload.
 
 ### 📡 IoT Meter Records
+<img width="1333" height="587" alt="image" src="https://github.com/user-attachments/assets/fcee6edd-a20e-4607-9f29-2d72c843d7e5" />
 
 The live contract stores meter history per wallet:
 
@@ -134,6 +147,7 @@ mapping(address => SmartMeterData[]) public meterReadings;
 The dashboard calls `updateMeterData(consumption, generation)`, waits for the MetaMask receipt, and displays the resulting transaction hash. The Energy Passport then loads the history through `getMeterReadings(account)`.
 
 ### 🪪 Energy Passport
+<img width="1317" height="397" alt="image" src="https://github.com/user-attachments/assets/d0dc048d-88c2-4f69-b77b-21b4ba4bb349" />
 
 Energy Passport turns the meter history into a visible provenance timeline. Each record shows:
 
@@ -146,6 +160,9 @@ Energy Passport turns the meter history into a visible provenance timeline. Each
 This makes the relationship between a physical reading and a later energy trade easy to explain during a demo.
 
 ### 🚨 Emergency Grid Alerts
+<img width="1313" height="245" alt="image" src="https://github.com/user-attachments/assets/db9743c0-d88c-40ef-9b98-614b2dd5b715" />
+<img width="1336" height="666" alt="image" src="https://github.com/user-attachments/assets/4c5a8600-4e2a-43ed-b05b-dbef08f7696b" />
+<img width="717" height="1600" alt="WhatsApp Image 2026-09-06 at 5 45 13 PM" src="https://github.com/user-attachments/assets/759f7499-a2b7-4b78-a2d3-322b28fe1e01" />
 
 The dashboard includes a critical-peak simulator. It prepares a valid whole-kWh recommendation of `3 kWh` at `0.05 Sepolia ETH` and records the emergency event in dashboard activity.
 

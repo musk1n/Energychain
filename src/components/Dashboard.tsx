@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { LineChart, Battery, Zap, Coins, ArrowLeftRight, TrendingUp, ShieldCheck, Sparkles, Target, ArrowUpRight, Cpu, Fingerprint, Radio } from 'lucide-react';
+import { LineChart, Battery, Zap, Coins, ArrowLeftRight, TrendingUp, ShieldCheck, Sparkles, Target, ArrowUpRight, Cpu, Fingerprint, Radio, History, CheckCircle2 } from 'lucide-react';
 import { getSmartMeterData } from '../utils/mockIoT';
 import MeterScanner from './MeterScanner';
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from '../config/contract';
@@ -44,6 +44,13 @@ interface IoTProof {
   onChain: boolean;
 }
 
+interface MeterReading {
+  consumption: number;
+  generation: number;
+  timestamp: number;
+  source: 'on-chain' | 'simulated' | 'camera';
+}
+
 const demoAccount = '0x7A42...91cE';
 const demoCredits: CarbonCreditListing[] = [
   { id: 'cc-18', seller: '0x39F1...42aB', amount: 18, price: 0.012 },
@@ -57,6 +64,11 @@ const demoTransactions: Transaction[] = [
   { id: 'tx-1', title: 'Energy purchased', detail: '240 kWh from 0x39F1...42aB', amount: '- 0.18 ETH', time: '12 min ago', status: 'Completed' },
   { id: 'tx-2', title: 'Carbon credits earned', detail: 'From verified renewable energy', amount: '+ 2 credits', time: '12 min ago', status: 'Completed' },
   { id: 'tx-3', title: 'Energy listed', detail: '180 kWh at 0.14 ETH', amount: 'Pending', time: 'Yesterday', status: 'Pending' }
+];
+const demoMeterHistory: MeterReading[] = [
+  { consumption: 82, generation: 146, timestamp: Date.now() - 480000, source: 'on-chain' },
+  { consumption: 76, generation: 131, timestamp: Date.now() - 2280000, source: 'on-chain' },
+  { consumption: 91, generation: 118, timestamp: Date.now() - 5520000, source: 'on-chain' }
 ];
 
 const Dashboard: React.FC<DashboardProps> = ({ account, onUseWallet }) => {
@@ -79,6 +91,7 @@ const Dashboard: React.FC<DashboardProps> = ({ account, onUseWallet }) => {
   const [iotProof, setIotProof] = useState<IoTProof | null>(null);
   const [isAnchoring, setIsAnchoring] = useState(false);
   const [meterSource, setMeterSource] = useState<'simulated' | 'camera'>('simulated');
+  const [meterHistory, setMeterHistory] = useState<MeterReading[]>(demoMeterHistory);
   const isDemo = account === 'demo-account';
   const energyBalance = meterData.generation - meterData.consumption;
   const hasSurplus = energyBalance >= 0;
@@ -131,6 +144,8 @@ const Dashboard: React.FC<DashboardProps> = ({ account, onUseWallet }) => {
       setToast('Meter transaction submitted. Confirm it in MetaMask...');
       await tx.wait();
       setIotProof({ ...reading, hash: tx.hash, onChain: true });
+      const confirmedReading: MeterReading = { ...reading, source: 'on-chain' };
+      setMeterHistory(prev => [confirmedReading, ...prev].slice(0, 8));
       setTransactions(prev => [{ id: tx.hash, title: 'IoT reading recorded on-chain', detail: `${reading.deviceId} · ${reading.generation} kWh generated`, amount: 'Confirmed', time: 'Just now', status: 'Completed', hash: tx.hash }, ...prev]);
       setToast(`Meter data confirmed: ${tx.hash.slice(0, 12)}...`);
     } catch (error) {
@@ -168,6 +183,7 @@ const Dashboard: React.FC<DashboardProps> = ({ account, onUseWallet }) => {
       setMeterData({ consumption: 82, generation: 146, carbonCredits: 64 });
       setAvailableCredits(demoCredits);
       setAvailableEnergy(demoEnergy);
+      setMeterHistory(demoMeterHistory);
       return;
     }
     try {
@@ -183,6 +199,14 @@ const Dashboard: React.FC<DashboardProps> = ({ account, onUseWallet }) => {
       // Load carbon credits balance
       const credits = await contract.carbonCredits(account);
       setMeterData(prev => ({ ...prev, carbonCredits: Number(credits) }));
+
+      const readings = await contract.getMeterReadings(account);
+      setMeterHistory(readings.slice(-8).reverse().map((reading: { consumption: bigint; generation: bigint; timestamp: bigint }) => ({
+        consumption: Number(reading.consumption),
+        generation: Number(reading.generation),
+        timestamp: Number(reading.timestamp) * 1000,
+        source: 'on-chain'
+      })));
 
       // Load available carbon credit listings
       const listings = [];
@@ -436,6 +460,19 @@ const Dashboard: React.FC<DashboardProps> = ({ account, onUseWallet }) => {
             <div className="col-span-2 sm:col-span-1"><p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Reading fingerprint</p><p className="mt-1 truncate font-mono text-xs text-slate-600" title={iotProof?.hash}>{iotProof ? `${iotProof.hash.slice(0, 10)}...${iotProof.hash.slice(-8)}` : 'Not generated'}</p></div>
           </div>
           <div className="mt-5"><MeterScanner onReading={handleScannedReading} /></div>
+        </section>
+
+        <section className="mt-8 rounded-2xl bg-slate-950 p-6 text-white shadow-xl">
+          <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+            <div><div className="mb-2 flex items-center gap-2 text-emerald-300"><History size={18} /><span className="text-xs font-black uppercase tracking-[0.2em]">Energy Passport</span></div><h2 className="text-2xl font-black">Your generation, with a memory.</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">A portable provenance trail for every meter record. Live mode reads directly from the EnergyTrading contract.</p></div>
+            <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-right"><p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Records tracked</p><p className="mt-1 text-2xl font-black text-emerald-300">{meterHistory.length}</p></div>
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            {meterHistory.slice(0, 3).map((reading, index) => {
+              const surplus = reading.generation - reading.consumption;
+              return <div key={`${reading.timestamp}-${index}`} className="relative rounded-xl border border-white/10 bg-white/5 p-4"><div className="mb-4 flex items-center justify-between"><span className="text-xs font-bold text-slate-400">{new Date(reading.timestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span><CheckCircle2 className="text-emerald-400" size={17} /></div><div className="flex items-end gap-4"><div><p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Generated</p><p className="text-2xl font-black text-emerald-300">{reading.generation}<span className="ml-1 text-xs text-slate-400">kWh</span></p></div><div><p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Used</p><p className="text-2xl font-black text-slate-200">{reading.consumption}<span className="ml-1 text-xs text-slate-500">kWh</span></p></div></div><p className={`mt-4 text-xs font-bold ${surplus >= 0 ? 'text-emerald-400' : 'text-amber-300'}`}>{surplus >= 0 ? '+' : ''}{surplus} kWh {surplus >= 0 ? 'available to trade' : 'drawn from the grid'}</p><p className="mt-2 text-[10px] font-bold uppercase tracking-widest text-slate-600">{reading.source === 'on-chain' ? 'Contract record' : 'Local reading'}</p></div>;
+            })}
+          </div>
         </section>
 
         {/* Carbon Credit Trading Platform */}

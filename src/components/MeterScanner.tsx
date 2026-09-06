@@ -13,7 +13,7 @@ const MeterScanner: React.FC<MeterScannerProps> = ({ onReading }) => {
   const [isReading, setIsReading] = useState(false);
   const [message, setMessage] = useState('Camera access stays in your browser.');
   const [rawText, setRawText] = useState('');
-  const [candidate, setCandidate] = useState<number | null>(null);
+  const [manualValue, setManualValue] = useState('');
 
   useEffect(() => {
     if (isCameraOpen && videoRef.current && streamRef.current) {
@@ -53,18 +53,23 @@ const MeterScanner: React.FC<MeterScannerProps> = ({ onReading }) => {
     setMessage('Reading the meter locally...');
     try {
       const worker = await createWorker('eng');
+      await worker.setParameters({
+        tessedit_char_whitelist: '0123456789.,',
+        tessedit_pageseg_mode: '7'
+      });
       const result = await worker.recognize(image);
       await worker.terminate();
       const extractedText = result.data.text.trim();
       setRawText(extractedText || 'No text detected');
-      const matches = extractedText.match(/\b\d{1,7}(?:[.,]\d{1,3})?\s*(?:kwh|kw\s*h)?\b/gi) ?? [];
+      const matches = extractedText.match(/\b\d{2,7}(?:[.,]\d{1,3})?\b/g) ?? [];
       const value = Number.parseFloat((matches[0] ?? '').replace(',', '.'));
-      if (!Number.isFinite(value) || value <= 0) {
-        setMessage('No kWh value found. Move closer and try again.');
+      const confidence = result.data.confidence ?? 0;
+      if (!Number.isFinite(value) || value <= 0 || confidence < 35) {
+        setMessage('OCR could not confidently read the meter. Move closer, center the display, or enter the value manually.');
         return;
       }
-      setCandidate(value);
-      setMessage(`OCR found ${value} kWh. Confirm it below before updating the dashboard.`);
+      setManualValue(value.toString());
+      setMessage(`OCR proposed ${value} kWh at ${Math.round(confidence)}% confidence. Confirm or correct it below.`);
     } catch (error) {
       console.error('Meter OCR failed:', error);
       setMessage('OCR failed. Try better lighting or a closer frame.');
@@ -74,9 +79,13 @@ const MeterScanner: React.FC<MeterScannerProps> = ({ onReading }) => {
   };
 
   const confirmReading = () => {
-    if (candidate === null) return;
-    onReading(candidate, rawText);
-    setMessage(`${candidate} kWh applied to the dashboard. You can now record it on-chain.`);
+    const value = Number(manualValue);
+    if (!Number.isFinite(value) || value <= 0) {
+      setMessage('Enter a valid kWh value before confirming.');
+      return;
+    }
+    onReading(value, rawText);
+    setMessage(`${value} kWh applied to the dashboard. You can now record it on-chain.`);
   };
 
   const scanReading = async () => {
@@ -105,7 +114,7 @@ const MeterScanner: React.FC<MeterScannerProps> = ({ onReading }) => {
       </div>
       {isCameraOpen && <div className="relative overflow-hidden rounded-lg bg-slate-950"><video ref={videoRef} autoPlay playsInline muted className="aspect-video w-full object-cover" /><div className="pointer-events-none absolute inset-[18%] rounded-lg border-2 border-cyan-300"><ScanLine className="absolute -right-3 -top-3 text-cyan-300" size={24} /></div><button onClick={scanReading} disabled={isReading} className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-white px-4 py-2 text-xs font-black text-cyan-900 shadow-lg disabled:opacity-60"><Upload size={14} /> {isReading ? 'Scanning...' : 'Scan reading'}</button></div>}
       <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-lg border border-cyan-200 bg-white px-3 py-2 text-xs font-bold text-cyan-800"><Upload size={14} /> Upload meter photo<input type="file" accept="image/*" capture="environment" onChange={handlePhotoUpload} className="hidden" /></label>
-      {candidate !== null && <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3"><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wider text-emerald-700">OCR candidate</p><p className="text-2xl font-black text-emerald-950">{candidate} <span className="text-sm">kWh</span></p></div><button onClick={confirmReading} className="inline-flex items-center gap-1 rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white"><Check size={14} /> Use this reading</button></div><p className="mt-2 max-h-16 overflow-auto whitespace-pre-wrap border-t border-emerald-200 pt-2 font-mono text-[11px] text-emerald-900/70">Raw OCR: {rawText}</p></div>}
+      <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3"><div className="flex items-end justify-between gap-3"><div><label className="text-xs font-bold uppercase tracking-wider text-emerald-700">Meter reading to apply</label><div className="mt-1 flex items-center gap-2"><input value={manualValue} onChange={event => setManualValue(event.target.value)} type="number" min="0.01" step="0.01" placeholder="e.g. 506" className="w-28 rounded-lg border border-emerald-200 bg-white px-2 py-2 text-xl font-black text-emerald-950" /><span className="text-sm font-bold text-emerald-800">kWh</span></div></div><button onClick={confirmReading} disabled={!manualValue} className="inline-flex items-center gap-1 rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"><Check size={14} /> Use this reading</button></div><p className="mt-2 max-h-16 overflow-auto whitespace-pre-wrap border-t border-emerald-200 pt-2 font-mono text-[11px] text-emerald-900/70">Raw OCR: {rawText || 'Scan a meter to see exactly what OCR detected.'}</p></div>
       <p className="mt-3 text-xs font-semibold text-cyan-900/70">{message}</p>
     </div>
   );

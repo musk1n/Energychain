@@ -55,7 +55,7 @@ const MeterScanner: React.FC<MeterScannerProps> = ({ onReading }) => {
       const worker = await createWorker('eng');
       await worker.setParameters({
         tessedit_char_whitelist: '0123456789.,',
-        tessedit_pageseg_mode: '7'
+        tessedit_pageseg_mode: '6'
       });
       const result = await worker.recognize(image);
       await worker.terminate();
@@ -64,12 +64,12 @@ const MeterScanner: React.FC<MeterScannerProps> = ({ onReading }) => {
       const matches = extractedText.match(/\b\d{2,7}(?:[.,]\d{1,3})?\b/g) ?? [];
       const value = Number.parseFloat((matches[0] ?? '').replace(',', '.'));
       const confidence = result.data.confidence ?? 0;
-      if (!Number.isFinite(value) || value <= 0 || confidence < 35) {
+      if (!Number.isFinite(value) || value <= 0) {
         setMessage('OCR could not confidently read the meter. Move closer, center the display, or enter the value manually.');
         return;
       }
       setManualValue(value.toString());
-      setMessage(`OCR proposed ${value} kWh at ${Math.round(confidence)}% confidence. Confirm or correct it below.`);
+      setMessage(`OCR proposed ${value} kWh${confidence > 0 ? ` at ${Math.round(confidence)}% confidence` : ''}. Confirm or correct it below.`);
     } catch (error) {
       console.error('Meter OCR failed:', error);
       setMessage('OCR failed. Try better lighting or a closer frame.');
@@ -94,9 +94,19 @@ const MeterScanner: React.FC<MeterScannerProps> = ({ onReading }) => {
       return;
     }
     const canvas = document.createElement('canvas');
-    canvas.width = videoRef.current.videoWidth;
-    canvas.height = videoRef.current.videoHeight;
-    canvas.getContext('2d')?.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+    const sourceWidth = videoRef.current.videoWidth;
+    const sourceHeight = videoRef.current.videoHeight;
+    const cropWidth = Math.floor(sourceWidth * 0.78);
+    const cropHeight = Math.floor(sourceHeight * 0.52);
+    canvas.width = cropWidth * 2;
+    canvas.height = cropHeight * 2;
+    const context = canvas.getContext('2d');
+    if (!context) {
+      setMessage('Could not prepare the camera frame.');
+      return;
+    }
+    context.filter = 'grayscale(1) contrast(1.8) brightness(1.1)';
+    context.drawImage(videoRef.current, Math.floor((sourceWidth - cropWidth) / 2), Math.floor((sourceHeight - cropHeight) / 2), cropWidth, cropHeight, 0, 0, canvas.width, canvas.height);
     const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob(value => value ? resolve(value) : reject(new Error('Could not capture camera frame')), 'image/jpeg', 0.9));
     await recognizeImage(blob);
   };

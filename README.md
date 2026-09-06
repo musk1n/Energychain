@@ -1,209 +1,309 @@
-# EnergyChain Project
+# EnergyChain
 
-Deployed on: [🔗](https://energychain-omega.vercel.app/) [energychain-omega.vercel.app](https://energychain-omega.vercel.app/)
+EnergyChain is a blockchain-enabled renewable-energy exchange. It connects smart-meter readings, peer-to-peer energy trading, carbon credits, wallet transactions, and emergency grid alerts in one demonstrable workflow.
 
+Live deployment: [energychain-omega.vercel.app](https://energychain-omega.vercel.app/)
 
-## 🚀 Overview
+## Why It Matters
 
-This project leverages blockchain technology integrated with real-time data processors like IoT devices to create a platform for carbon credit and electricity trading. By utilizing privacy-preserving technologies like zk-SNARKs, the platform ensures transparent transactions while maintaining user privacy. The system facilitates secure, traceable, and privacy-preserving trading to promote sustainability and efficient energy markets.
+Energy data is usually trapped between a physical meter, a utility dashboard, and a centralized billing system. EnergyChain makes the important parts visible and programmable:
 
-## ⚡ Problem Statement
+- Producers can list surplus renewable energy.
+- Buyers can purchase energy directly through a smart contract.
+- Purchases generate carbon credits.
+- Meter readings can be recorded on-chain as an auditable history.
+- Smart Grid Match recommends the next action from generation and consumption.
+- Emergency Grid Alerts can push a recommended trade to a phone.
 
-The project addresses three key challenges in the energy sector:
+The result is a prototype for a more transparent microgrid marketplace where energy has provenance, a price, and an actionable response.
 
-- 🔒 Energy Security
-- ⚖ Energy Equity
-- 🌱 Environmental Sustainability
+## Product Flow
 
----
+```text
+Physical meter or simulator
+        |
+        v
+Camera OCR and user confirmation
+        |
+        v
+MetaMask signs updateMeterData on Sepolia
+        |
+        v
+Energy Passport stores meter history
+        |
+        v
+Smart Grid Match recommends buy or sell
+        |
+        v
+Energy listing and purchase through EnergyTrading
+        |
+        v
+Carbon credits and transaction history
+        |
+        v
+Emergency alerts through Browser Push or Telegram
+```
 
-### 🎯 Objectives
+## ✨ Features
 
-- Enable transparent smart grid systems with direct prosumer participation.
-- Automate carbon credit trading with real-time verification.
-- Implement privacy-preserving mechanisms using zk-SNARKs.
-- Integrate IoT devices and smart meters to track energy consumption.
-- Ensure scalability for both small-scale and large energy producers.
+### 🎬 Demo Mode
 
----
+The application opens in demo mode so the complete product can be presented without a wallet, deployed contract state, or Sepolia ETH. Demo data includes energy listings, carbon credits, meter history, transactions, and simulated interactions.
 
-## 📦 Deliverables
+Demo actions update React state only. They do not create blockchain transactions.
 
-- System Architecture showcasing blockchain-based trading.
-- Smart Contracts and IoT integration modules.
-- ZK-SNARK circuits for privacy protection.
-- Peer-to-Peer Energy Trading Demonstration.
-- Complete Source Code for deployment.
+Use **Use MetaMask** to leave demo mode and use the real Sepolia flow.
 
----
+### 🦊 MetaMask and Sepolia
 
-## 🛠 Approach
+The live dashboard connects to MetaMask through `ethers.js`. It validates the Sepolia network before submitting transactions.
 
-- Blockchain ensures secure and transparent transactions.
-- Smart contracts automate peer-to-peer trading.
-- zk-SNARKs protect sensitive user data.
-- IoT integration tracks and validates trades in real-time.
-- Decentralized storage ensures secure and immutable records.
-- Focus on energy equity and market efficiency by reducing intermediaries.
+Live transactions include:
 
----
+- Listing energy.
+- Buying energy.
+- Listing carbon credits.
+- Buying carbon credits.
+- Recording smart-meter data.
 
-## 🧰 Tech Stack
+Every confirmed action appears in Recent Activity with its transaction hash.
 
-### 🌐 Frontend
+### ⚡ Multi-Listing Energy Marketplace
 
+Energy listings use numeric IDs rather than wallet addresses. This matters because one wallet can publish multiple independent listings.
+
+The contract stores listings using:
+
+```solidity
+mapping(uint256 => EnergyData) public energyListings;
+uint256 public nextEnergyListingId;
+```
+
+Buying one listing marks only that listing unavailable. Other sellers and other listings remain available.
+
+### 🌱 Carbon Credits
+
+When energy is purchased, the buyer receives carbon credits calculated by the contract. Credits can then be listed and purchased in a separate marketplace.
+
+The prototype calculation is:
+
+```solidity
+energyAmount / 100
+```
+
+This demonstrates the trading flow. It is not an environmental certification standard.
+
+### ✨ Smart Grid Match
+
+Smart Grid Match compares generation and consumption:
+
+- Generation above consumption produces a surplus recommendation.
+- Consumption above generation produces a shortfall recommendation.
+- The marketplace is searched for the best available energy rate.
+- Surplus listings can be prepared automatically in the form.
+- A shortfall can trigger the existing purchase flow.
+
+This is the foundation for an energy-management agent that could later use real IoT telemetry, market prices, and user preferences.
+
+### 📷 Camera Meter Scanner
+
+The dashboard can open a phone camera or accept a meter photo. `tesseract.js` performs OCR locally in the browser.
+
+The scanner:
+
+1. Captures a camera frame or uploaded image.
+2. Crops the meter region.
+3. Enlarges and preprocesses the image.
+4. Extracts a candidate kWh value.
+5. Shows the raw OCR text.
+6. Requires the user to confirm or correct the value.
+7. Updates the dashboard only after confirmation.
+
+The image is not uploaded by the scanner. The confirmed value can then be recorded on-chain through MetaMask.
+
+Camera OCR is an input assistant, not a trusted oracle. A blurry display, glare, or a fabricated screen can produce a wrong value. Production hardware should sign readings or expose a signed QR payload.
+
+### 📡 IoT Meter Records
+
+The live contract stores meter history per wallet:
+
+```solidity
+mapping(address => SmartMeterData[]) public meterReadings;
+```
+
+The dashboard calls `updateMeterData(consumption, generation)`, waits for the MetaMask receipt, and displays the resulting transaction hash. The Energy Passport then loads the history through `getMeterReadings(account)`.
+
+### 🪪 Energy Passport
+
+Energy Passport turns the meter history into a visible provenance timeline. Each record shows:
+
+- Timestamp.
+- Generation.
+- Consumption.
+- Surplus available to trade or energy drawn from the grid.
+- Whether the record came from the contract or local demo state.
+
+This makes the relationship between a physical reading and a later energy trade easy to explain during a demo.
+
+### 🚨 Emergency Grid Alerts
+
+The dashboard includes a critical-peak simulator. It prepares a valid whole-kWh recommendation of `3 kWh` at `0.05 Sepolia ETH` and records the emergency event in dashboard activity.
+
+Free delivery options:
+
+- Browser Push: no external account required.
+- Telegram Bot API: free, with a bot token and chat ID.
+
+The alert contains a deep link. Opening it activates the dashboard emergency state and pre-fills the trade form. A phone cannot open a computer's `localhost`, so local testing uses the deployed Vercel URL for the deep link.
+
+## Technology
+
+### Frontend
+
+- React 18
 - TypeScript
-- React
-- Tailwind CSS
 - Vite
+- Tailwind CSS
+- Lucide icons
+- `ethers.js` for wallet and contract calls
+- `tesseract.js` for browser OCR
 
-### 🔐 Backend (Blockchain)
+### Blockchain
 
-- Solidity
-- Remix
-- zk-SNARKs
+- Solidity `0.8.x`
+- Sepolia testnet
+- MetaMask
+- EnergyTrading contract
+- Event and transaction receipt tracking
 
-### 📂 Storage
+### IoT and Data
 
-- IPFS
-- Pinata
-- Alchemy
+- Mock smart-meter generator for demo mode.
+- Browser camera and photo upload.
+- Client-side OCR preprocessing.
+- On-chain meter history.
+- Existing IPFS/Pinata integration scripts in `IoT_Integration/`.
 
-### 🛠 Development Tools
+### Privacy Research
 
-- Node.js
-- npm
-- Git
-- ESLint
+The repository contains Circom/Groth16 material under `zk_snarks/`. The existing circuit is a positive-balance demonstration. It does not yet prove that an OCR result came from a real meter.
 
-### ⚙ Configuration
+A future useful circuit could prove that a private reading exceeds a threshold without revealing the exact value. A trusted signed meter input is still required to establish that the original reading is genuine.
 
-- TypeScript Config (tsconfig)
-- PostCSS
+## Local Setup
 
----
+### Requirements
 
-## 📋 Setup Instructions
+- Node.js 18 or newer.
+- npm.
+- MetaMask for live transactions.
+- Sepolia ETH only for live gas and transaction value.
 
-Follow these steps to deploy the project on your local machine:
-
-### 1️⃣ Clone the Repository
-
-```bash
-git clone https://github.com/musk1n/webss
-```
-
-
-### 2️⃣ Install Dependencies
-
-Navigate to the project directory and install required modules:
+### Install and Run
 
 ```bash
-cd webss
+git clone https://github.com/musk1n/Energychain.git
+cd Energychain
 npm install
-```
-
-### Environment and secret protection
-
-Copy `.env.example` to `.env` and fill in optional Telegram values when testing alerts:
-
-```bash
-copy .env.example .env
-```
-
-`.env` is ignored by Git. The repository also includes a pre-push hook at `.githooks/pre-push` that blocks `.env` files, private keys, and common credential files from being pushed. Run `npm install` once after cloning to enable the hook. For Vercel, add the same values in **Project Settings > Environment Variables** instead of committing them.
-
-
-### 3️⃣ Run the Application
-
-Start the development server:
-
-```bash
 npm run dev
 ```
 
-### Emergency grid alerts
+Open the Vite URL shown in the terminal.
 
-The dashboard includes a critical-peak simulator. Browser push works without a backend. Free Telegram delivery uses the Vercel function at `api/send-alert.ts`, which keeps the bot token off the client.
+### Environment and Secret Protection
 
-Configure these server-side environment variables in Vercel:
+Copy the template:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+For free Telegram alerts, fill in:
 
 ```text
 TELEGRAM_BOT_TOKEN=your_bot_token
 TELEGRAM_CHAT_ID=your_chat_id
 ```
 
-Create a free Telegram bot with `@BotFather`, send it one message from your phone, then obtain your chat ID from Telegram's `getUpdates` API. No paid SMS provider is required. Without Telegram configuration, the app falls back to a browser notification.
+Create a bot with `@BotFather`, send it `/start`, then use Telegram's `getUpdates` endpoint to find the chat ID. Restart Vite after changing `.env` because environment variables are loaded when the server starts.
 
-### Energy listing contract update
+The repository ignores `.env`. A versioned `.githooks/pre-push` hook blocks environment files, private keys, and common credential files from being pushed. Never place real secrets in `.env.example`, source files, or README screenshots.
 
-Energy listings use numeric listing IDs so one wallet can publish multiple listings. The updated source is in `src/contracts/EnergyTrading.sol`. Because deployed Solidity code cannot be changed, deploy this updated contract before testing live multi-listing behavior:
+### Free Sepolia ETH
 
-1. Open `src/contracts/EnergyTrading.sol` in Remix and compile it with Solidity `0.8.x`.
-2. In **Deploy & Run Transactions**, choose **Injected Provider - MetaMask**, select **Sepolia**, and deploy `EnergyTrading`.
-3. Copy the new contract address into `src/config/contract.ts` as `CONTRACT_ADDRESS`.
-4. Make sure the generated ABI in `CONTRACT_ABI` matches the updated contract, then restart Vite.
+For live transactions, switch MetaMask to Sepolia and request test ETH from a public Sepolia faucet. No real funds are needed. Never enter a private key into a faucet or the application.
 
-The old address uses `mapping(address => EnergyData)`, which intentionally allowed only one listing per wallet. The new contract uses `mapping(uint256 => EnergyData)` and `nextEnergyListingId`, so each listing is independent. Purchased listings disappear from the available market because the contract marks only that listing ID unavailable.
+## Contract Deployment
 
-## dApp demo
+The frontend address and ABI are configured in `src/config/contract.ts`.
 
-### Watch the Video
+If you change `src/contracts/EnergyTrading.sol`, deploy the updated contract before testing live behavior:
 
-You can view the Demo video by clicking the link below:
+1. Open the Solidity file in Remix.
+2. Compile with Solidity `0.8.x`.
+3. Select **Injected Provider - MetaMask**.
+4. Switch MetaMask to Sepolia.
+5. Deploy `EnergyTrading`.
+6. Copy the new address into `CONTRACT_ADDRESS`.
+7. Update `CONTRACT_ABI` to match the deployed contract.
+8. Restart Vite.
 
-[Watch the Video]( )
+Deployed Solidity code is immutable. Frontend changes alone cannot change the contract storage model or add functions to an existing address.
 
-## dApp flow Screenshots
+## Telegram Alert Setup
 
-![image](https://github.com/user-attachments/assets/35d8d65a-3c65-4299-99c3-142695aeaf73)
-![image](https://github.com/user-attachments/assets/6ccb4de6-c5ae-4eb4-8de4-320fd1e69d42)
-![image](https://github.com/user-attachments/assets/65adee1e-e323-4361-b9d7-d812f7e7f11b)
-![image](https://github.com/user-attachments/assets/d11ff12c-678e-471a-9511-2795c5cd902c)
-![image](https://github.com/user-attachments/assets/1d60a98c-2338-4cee-92f8-c8f6a642e764)
+1. Open Telegram and message `@BotFather`.
+2. Run `/newbot` and copy the token.
+3. Message your new bot with `/start`.
+4. Open `https://api.telegram.org/botYOUR_TOKEN/getUpdates`.
+5. Copy the numeric `chat.id` into `TELEGRAM_CHAT_ID`.
+6. Restart `npm run dev`.
+7. Select **Telegram - free** in the dashboard.
+8. Click **Simulate critical peak**.
 
+The local Vite plugin handles `/api/send-alert` during development. The Vercel function at `api/send-alert.ts` handles the same route in deployment. If delivery is unavailable, the dashboard reports the exact error and keeps the critical event visible locally.
 
-# 📡 IoT Integration Flow Documentation
+## Scripts
 
-## 📄 Overview
-This application is currently running with mock data and real-time updates to simulate the full integration process. The actual IoT integration will follow the structured workflow detailed below.
+```bash
+npm run dev      # Start Vite development server
+npm run build    # Create a production build
+npm run lint     # Run ESLint
+npm run preview  # Preview the production build
+```
 
----
+## Limitations and Next Steps
 
-## 🛠 Integration Plan
+This is a working prototype and a demonstration of the architecture. Important limitations:
 
-### 1️⃣ Data Collection from IoT Devices and Smart Meters
-   - IoT devices and smart meters continuously monitor and collect data.
-   - This data is formatted and saved into a JSON file.
+- Demo-mode actions are local and are not blockchain transactions.
+- Camera OCR does not prove that a physical meter is authentic.
+- The smart-meter generator is simulated unless a live reading is recorded.
+- Carbon-credit calculation is simplified.
+- Telegram is free but is not SMS or WhatsApp.
+- ZK artifacts are research material and are not yet connected to meter verification.
+- The current contract does not enforce that an energy listing is backed by a signed meter record.
 
----
+The strongest production upgrades are signed meter QR payloads, hardware-backed device identities, a trusted oracle, a real ZK circuit for private meter thresholds, and a contract function that links an energy listing to a verified meter record.
 
-### 2️⃣ Storing Data on IPFS
-   - The JSON file is uploaded to the InterPlanetary File System (IPFS).
-   - A unique Content Identifier (CID) or hash is generated after successful storage.
+## Project Structure
 
----
+```text
+src/
+  components/
+    Dashboard.tsx          Main marketplace and energy operations UI
+    MeterScanner.tsx       Camera/photo OCR input
+    MetaMaskConnect.tsx    Wallet connection screen
+  config/contract.ts       Deployed address and contract ABI
+  contracts/EnergyTrading.sol
+                           Energy listings, purchases, credits, and meter history
+  utils/mockIoT.ts         Demo smart-meter generator
+api/send-alert.ts          Vercel Telegram alert function
+.githooks/pre-push         Secret-file push protection
+IoT_Integration/           IPFS/hash integration scripts and sample data
+zk_snarks/                 Circom/Groth16 research artifacts
+```
 
-### 3️⃣ Storing the Hash on Blockchain
-   - The generated CID is stored on the blockchain.
-   - We utilize Alchemy to handle blockchain transactions and storage operations.
+## License
 
----
-
-### 4️⃣ Data Retrieval Process
-   To retrieve and access the data:
-   1. Fetch the CID: Retrieve the hash stored on the blockchain.
-   2. Retrieve Data: Use the CID to fetch the actual JSON data file from **IPFS.
-
----
-
-## 🧩 Key Components
-
-| Component            | Description                                        |
-|--------------------------|---------------------------------------------------------|
-| 🌐 IoT Devices & Smart Meters | Real-time data sources that collect and monitor system metrics. |
-| 📦 IPFS (InterPlanetary File System) | Decentralized, peer-to-peer storage system for large-scale data. |
-| 🔒 Blockchain         | Immutable ledger for securely storing IPFS CIDs (hashes).  |
-| ⚡ Alchemy             | Blockchain infrastructure provider for managing transactions. |
-
----
+No license has been specified for this repository yet.

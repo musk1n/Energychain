@@ -13,19 +13,30 @@ const MeterScanner: React.FC<MeterScannerProps> = ({ onReading }) => {
   const [isReading, setIsReading] = useState(false);
   const [message, setMessage] = useState('Camera access stays in your browser.');
 
+  useEffect(() => {
+    if (isCameraOpen && videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+      void videoRef.current.play();
+    }
+  }, [isCameraOpen]);
+
   useEffect(() => () => {
     streamRef.current?.getTracks().forEach(track => track.stop());
   }, []);
 
   const openCamera = async () => {
+    if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+      setMessage('Camera needs an HTTPS deployment or localhost. Use Upload meter photo below.');
+      return;
+    }
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
       streamRef.current = stream;
-      if (videoRef.current) videoRef.current.srcObject = stream;
       setIsCameraOpen(true);
       setMessage('Point at the meter number, then scan.');
-    } catch {
-      setMessage('Camera permission was denied or is unavailable.');
+    } catch (error) {
+      const name = error instanceof DOMException ? error.name : '';
+      setMessage(name === 'NotAllowedError' ? 'Camera permission is blocked. Allow camera access in browser settings, then try again.' : 'Camera is unavailable. Use Upload meter photo below.');
     }
   };
 
@@ -35,23 +46,12 @@ const MeterScanner: React.FC<MeterScannerProps> = ({ onReading }) => {
     setIsCameraOpen(false);
   };
 
-  const scanReading = async () => {
-    if (!videoRef.current || videoRef.current.videoWidth === 0) {
-      setMessage('Wait for the camera preview to load.');
-      return;
-    }
-
+  const recognizeImage = async (image: Blob) => {
     setIsReading(true);
     setMessage('Reading the meter locally...');
-    const canvas = document.createElement('canvas');
-    canvas.width = videoRef.current.videoWidth;
-    canvas.height = videoRef.current.videoHeight;
-    canvas.getContext('2d')?.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-
     try {
-      const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob(value => value ? resolve(value) : reject(new Error('Could not capture camera frame')), 'image/jpeg', 0.9));
       const worker = await createWorker('eng');
-      const result = await worker.recognize(blob);
+      const result = await worker.recognize(image);
       await worker.terminate();
       const matches = result.data.text.match(/\b\d+(?:[.,]\d+)?\s*(?:kwh)?\b/gi) ?? [];
       const value = Number.parseFloat((matches[0] ?? '').replace(',', '.'));
@@ -69,6 +69,24 @@ const MeterScanner: React.FC<MeterScannerProps> = ({ onReading }) => {
     }
   };
 
+  const scanReading = async () => {
+    if (!videoRef.current || videoRef.current.videoWidth === 0) {
+      setMessage('Wait for the camera preview to load.');
+      return;
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = videoRef.current.videoWidth;
+    canvas.height = videoRef.current.videoHeight;
+    canvas.getContext('2d')?.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob(value => value ? resolve(value) : reject(new Error('Could not capture camera frame')), 'image/jpeg', 0.9));
+    await recognizeImage(blob);
+  };
+
+  const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) void recognizeImage(file);
+  };
+
   return (
     <div className="rounded-xl border border-cyan-100 bg-cyan-50/60 p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -76,6 +94,7 @@ const MeterScanner: React.FC<MeterScannerProps> = ({ onReading }) => {
         {isCameraOpen ? <button onClick={closeCamera} className="inline-flex items-center gap-1 rounded-lg border border-cyan-200 bg-white px-3 py-2 text-xs font-bold text-cyan-800"><Square size={13} /> Close</button> : <button onClick={openCamera} className="inline-flex items-center gap-1 rounded-lg bg-cyan-700 px-3 py-2 text-xs font-bold text-white"><Camera size={14} /> Open camera</button>}
       </div>
       {isCameraOpen && <div className="relative overflow-hidden rounded-lg bg-slate-950"><video ref={videoRef} autoPlay playsInline muted className="aspect-video w-full object-cover" /><div className="pointer-events-none absolute inset-[18%] rounded-lg border-2 border-cyan-300"><ScanLine className="absolute -right-3 -top-3 text-cyan-300" size={24} /></div><button onClick={scanReading} disabled={isReading} className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-white px-4 py-2 text-xs font-black text-cyan-900 shadow-lg disabled:opacity-60"><Upload size={14} /> {isReading ? 'Scanning...' : 'Scan reading'}</button></div>}
+      <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-lg border border-cyan-200 bg-white px-3 py-2 text-xs font-bold text-cyan-800"><Upload size={14} /> Upload meter photo<input type="file" accept="image/*" capture="environment" onChange={handlePhotoUpload} className="hidden" /></label>
       <p className="mt-3 text-xs font-semibold text-cyan-900/70">{message}</p>
     </div>
   );

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { LineChart, Battery, Zap, Coins, ArrowLeftRight, TrendingUp, ShieldCheck, Sparkles, Target, ArrowUpRight, Cpu, Fingerprint, Radio } from 'lucide-react';
 import { getSmartMeterData } from '../utils/mockIoT';
+import MeterScanner from './MeterScanner';
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from '../config/contract';
 import { ethers } from 'ethers';
 
@@ -137,6 +138,11 @@ const Dashboard: React.FC<DashboardProps> = ({ account, onUseWallet }) => {
     } finally {
       setIsAnchoring(false);
     }
+  };
+
+  const handleScannedReading = (generation: number) => {
+    setMeterData(prev => ({ ...prev, generation }));
+    setToast(`OCR captured ${generation} kWh. Review it before recording on-chain.`);
   };
 
   useEffect(() => {
@@ -426,6 +432,7 @@ const Dashboard: React.FC<DashboardProps> = ({ account, onUseWallet }) => {
             <div><p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Status</p><p className={`mt-1 flex items-center gap-1 font-bold ${iotProof?.onChain ? 'text-cyan-700' : 'text-amber-600'}`}><Radio size={14} /> {iotProof?.onChain ? 'On-chain' : iotProof ? 'Local demo' : 'Awaiting record'}</p></div>
             <div className="col-span-2 sm:col-span-1"><p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Reading fingerprint</p><p className="mt-1 truncate font-mono text-xs text-slate-600" title={iotProof?.hash}>{iotProof ? `${iotProof.hash.slice(0, 10)}...${iotProof.hash.slice(-8)}` : 'Not generated'}</p></div>
           </div>
+          <div className="mt-5"><MeterScanner onReading={handleScannedReading} /></div>
         </section>
 
         {/* Carbon Credit Trading Platform */}

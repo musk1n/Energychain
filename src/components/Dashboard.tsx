@@ -78,6 +78,7 @@ const Dashboard: React.FC<DashboardProps> = ({ account, onUseWallet }) => {
   const [toast, setToast] = useState('');
   const [iotProof, setIotProof] = useState<IoTProof | null>(null);
   const [isAnchoring, setIsAnchoring] = useState(false);
+  const [meterSource, setMeterSource] = useState<'simulated' | 'camera'>('simulated');
   const isDemo = account === 'demo-account';
   const energyBalance = meterData.generation - meterData.consumption;
   const hasSurplus = energyBalance >= 0;
@@ -140,9 +141,10 @@ const Dashboard: React.FC<DashboardProps> = ({ account, onUseWallet }) => {
     }
   };
 
-  const handleScannedReading = (generation: number) => {
+  const handleScannedReading = (generation: number, rawText: string) => {
     setMeterData(prev => ({ ...prev, generation }));
-    setToast(`OCR captured ${generation} kWh. Review it before recording on-chain.`);
+    setMeterSource('camera');
+    setToast(`OCR captured ${generation} kWh from the camera. Raw text: ${rawText.slice(0, 40)}`);
   };
 
   useEffect(() => {
@@ -155,10 +157,11 @@ const Dashboard: React.FC<DashboardProps> = ({ account, onUseWallet }) => {
       }));
     };
 
+    if (meterSource !== 'simulated') return;
     updateMeterData();
     const interval = setInterval(updateMeterData, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [meterSource]);
 
   const loadBlockchainData = useCallback(async () => {
     if (isDemo) {
@@ -380,7 +383,7 @@ const Dashboard: React.FC<DashboardProps> = ({ account, onUseWallet }) => {
           <div className="bg-white rounded-xl shadow-md p-6">
             <div className="flex items-center mb-4">
               <Battery className="w-6 h-6 text-green-500 mr-2" />
-              <h2 className="text-xl font-semibold">Current Generation</h2>
+              <h2 className="text-xl font-semibold">Current Generation {meterSource === 'camera' && <span className="ml-2 rounded-full bg-cyan-100 px-2 py-1 text-xs text-cyan-700">Camera reading</span>}</h2>
             </div>
             <p className="text-3xl font-bold text-green-500">{meterData.generation} kWh</p>
           </div>

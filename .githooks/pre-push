@@ -1,0 +1,36 @@
+#!/bin/sh
+set -eu
+
+blocked=''
+
+while read -r local_ref local_oid remote_ref remote_oid; do
+  [ "$local_oid" = "0000000000000000000000000000000000000000" ] && continue
+
+  if [ "$remote_oid" = "0000000000000000000000000000000000000000" ]; then
+    commits=$(git rev-list "$local_oid" --not --remotes 2>/dev/null || true)
+  else
+    commits=$(git rev-list "$remote_oid..$local_oid" 2>/dev/null || true)
+  fi
+
+  for commit in $commits; do
+    files=$(git diff-tree --no-commit-id --name-only -r "$commit")
+    for file in $files; do
+      case "$file" in
+        .env|.env.*|*/.env|*/.env.*|*.pem|*.key|*id_rsa|*credentials.json|*service-account*.json)
+          case "$file" in
+            .env.example|*/.env.example) ;;
+            *) blocked="$blocked\n$file" ;;
+          esac
+          ;;
+      esac
+    done
+  done
+done
+
+if [ -n "$blocked" ]; then
+  printf '%b\n' "Push blocked: secret-like files are present in commits being pushed:$blocked"
+  printf '%s\n' 'Remove the files from the commit and keep secrets in .env or deployment settings.'
+  exit 1
+fi
+
+exit 0

@@ -103,6 +103,16 @@ cd webss
 npm install
 ```
 
+### Environment and secret protection
+
+Copy `.env.example` to `.env` and fill in optional Telegram values when testing alerts:
+
+```bash
+copy .env.example .env
+```
+
+`.env` is ignored by Git. The repository also includes a pre-push hook at `.githooks/pre-push` that blocks `.env` files, private keys, and common credential files from being pushed. Run `npm install` once after cloning to enable the hook. For Vercel, add the same values in **Project Settings > Environment Variables** instead of committing them.
+
 
 ### 3️⃣ Run the Application
 
@@ -111,6 +121,19 @@ Start the development server:
 ```bash
 npm run dev
 ```
+
+### Emergency grid alerts
+
+The dashboard includes a critical-peak simulator. Browser push works without a backend. Free Telegram delivery uses the Vercel function at `api/send-alert.ts`, which keeps the bot token off the client.
+
+Configure these server-side environment variables in Vercel:
+
+```text
+TELEGRAM_BOT_TOKEN=your_bot_token
+TELEGRAM_CHAT_ID=your_chat_id
+```
+
+Create a free Telegram bot with `@BotFather`, send it one message from your phone, then obtain your chat ID from Telegram's `getUpdates` API. No paid SMS provider is required. Without Telegram configuration, the app falls back to a browser notification.
 
 ### Energy listing contract update
 
@@ -127,9 +150,9 @@ The old address uses `mapping(address => EnergyData)`, which intentionally allow
 
 ### Watch the Video
 
-You can view the Demo video on Google Drive by clicking the link below:
+You can view the Demo video by clicking the link below:
 
-[Watch the Video](https://drive.google.com/file/d/1_VHosx_xXTjfTaL9j64KoBBqjLDv1vQB/view?usp=drive_link)
+[Watch the Video]( )
 
 ## dApp flow Screenshots
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { LineChart, Battery, Zap, Coins, ArrowLeftRight, TrendingUp, ShieldCheck, Sparkles, Target, ArrowUpRight, Cpu, Fingerprint, Radio, History, CheckCircle2 } from 'lucide-react';
+import { LineChart, Battery, Zap, Coins, ArrowLeftRight, TrendingUp, ShieldCheck, Sparkles, Target, ArrowUpRight, Cpu, Fingerprint, Radio, History, CheckCircle2, Siren, Bell, ExternalLink } from 'lucide-react';
 import { getSmartMeterData } from '../utils/mockIoT';
 import MeterScanner from './MeterScanner';
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from '../config/contract';
@@ -92,6 +92,10 @@ const Dashboard: React.FC<DashboardProps> = ({ account, onUseWallet }) => {
   const [isAnchoring, setIsAnchoring] = useState(false);
   const [meterSource, setMeterSource] = useState<'simulated' | 'camera'>('simulated');
   const [meterHistory, setMeterHistory] = useState<MeterReading[]>(demoMeterHistory);
+  const [gridAlertActive, setGridAlertActive] = useState(false);
+  const [alertChannel, setAlertChannel] = useState<'browser' | 'telegram'>('browser');
+  const [alertSending, setAlertSending] = useState(false);
+  const [alertResult, setAlertResult] = useState('');
   const isDemo = account === 'demo-account';
   const energyBalance = meterData.generation - meterData.consumption;
   const hasSurplus = energyBalance >= 0;
@@ -99,6 +103,53 @@ const Dashboard: React.FC<DashboardProps> = ({ account, onUseWallet }) => {
     ? [...availableEnergy].sort((first, second) => (first.price / first.amount) - (second.price / second.amount))[0]
     : undefined;
   const smartAmount = hasSurplus ? Math.max(energyBalance, 1) : Math.abs(energyBalance);
+
+  const emergencyMessage = 'ENERGYCHAIN ALERT: Microgrid power spike detected at Node #104. Recommended action: Sell 3 kWh surplus now to earn 0.05 Sepolia ETH.';
+
+  const handleGridAlert = async () => {
+    setGridAlertActive(true);
+    setAlertSending(true);
+    setEnergyAmount('3');
+    setEnergyPrice('0.05');
+    const deepLink = `${window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1') ? 'https://energychain-omega.vercel.app' : window.location.origin}${window.location.pathname}?alert=grid-peak`;
+    setAlertResult('Critical event recorded in dashboard. Sending notification...');
+    setTransactions(prev => [{ id: `alert-${Date.now()}`, title: 'Critical grid alert', detail: 'Node #104 · 3 kWh trade recommended', amount: 'Alert', time: 'Just now', status: 'Completed' }, ...prev]);
+    setToast('Critical grid peak simulated. Trade prepared for 3 kWh.');
+    try {
+      if (alertChannel === 'browser') {
+        if ('Notification' in window && Notification.permission === 'default') await Notification.requestPermission();
+        if (!('Notification' in window)) throw new Error('This browser does not support notifications.');
+        if (Notification.permission === 'granted') {
+          const notification = new Notification('EnergyChain Grid Alert', { body: emergencyMessage, data: deepLink });
+          notification.onclick = () => window.open(deepLink, '_blank', 'noopener,noreferrer');
+        } else {
+          throw new Error('Browser notification permission was not granted.');
+        }
+        setAlertResult('Browser alert delivered. Trade pre-filled below.');
+      } else {
+        const response = await fetch('/api/send-alert', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channel: 'telegram', message: emergencyMessage, deepLink }) });
+        const responseText = await response.text();
+        let result: { delivered?: boolean; error?: string } = {};
+        try {
+          result = JSON.parse(responseText) as { delivered?: boolean; error?: string };
+        } catch {
+          throw new Error(`Alert endpoint returned HTTP ${response.status}: ${responseText || 'empty response'}`);
+        }
+        if (!response.ok) throw new Error(result.error || `Alert endpoint returned HTTP ${response.status}`);
+        setAlertResult(result.delivered ? 'Telegram alert delivered.' : 'Alert queued.');
+      }
+    } catch (error) {
+      console.error('Grid alert delivery failed:', error);
+      if (alertChannel === 'telegram') {
+        if ('Notification' in window && Notification.permission === 'default') await Notification.requestPermission();
+        if ('Notification' in window && Notification.permission === 'granted') new Notification('EnergyChain Grid Alert', { body: emergencyMessage });
+        setAlertResult(`Telegram failed: ${error instanceof Error ? error.message : 'unknown error'}. Browser fallback was shown.`);
+      } else setAlertResult(`Browser notification failed: ${error instanceof Error ? error.message : 'permission blocked'}. The alert is visible on this dashboard.`);
+    } finally {
+      setAlertSending(false);
+      document.getElementById('energy-trading')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
 
   const handleSmartMatch = () => {
     if (hasSurplus) {
@@ -201,7 +252,7 @@ const Dashboard: React.FC<DashboardProps> = ({ account, onUseWallet }) => {
       setMeterData(prev => ({ ...prev, carbonCredits: Number(credits) }));
 
       const readings = await contract.getMeterReadings(account);
-      setMeterHistory(readings.slice(-8).reverse().map((reading: { consumption: bigint; generation: bigint; timestamp: bigint }) => ({
+      setMeterHistory([...readings].slice(-8).reverse().map((reading: { consumption: bigint; generation: bigint; timestamp: bigint }) => ({
         consumption: Number(reading.consumption),
         generation: Number(reading.generation),
         timestamp: Number(reading.timestamp) * 1000,
@@ -249,6 +300,15 @@ const Dashboard: React.FC<DashboardProps> = ({ account, onUseWallet }) => {
   useEffect(() => {
     loadBlockchainData();
   }, [loadBlockchainData]);
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('alert') === 'grid-peak') {
+      setGridAlertActive(true);
+      setEnergyAmount('3');
+      setEnergyPrice('0.05');
+      setToast('Emergency deep link opened: smart trade prepared.');
+    }
+  }, []);
 
   const handleListCredits = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -429,6 +489,14 @@ const Dashboard: React.FC<DashboardProps> = ({ account, onUseWallet }) => {
           </div>
         </div>
 
+        <section className={`mt-8 overflow-hidden rounded-2xl border p-6 shadow-md transition ${gridAlertActive ? 'border-red-300 bg-red-50' : 'border-slate-200 bg-white'}`}>
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-start gap-4"><div className={`rounded-2xl p-3 ${gridAlertActive ? 'bg-red-600 text-white' : 'bg-slate-100 text-slate-700'}`}><Siren size={25} /></div><div><div className="mb-1 flex items-center gap-2"><h2 className="text-xl font-black text-slate-950">Emergency Grid Alert</h2>{gridAlertActive && <span className="rounded-full bg-red-100 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-red-700">Critical peak</span>}</div><p className="max-w-2xl text-sm leading-6 text-slate-500">Simulate a microgrid surge and push a recommended trade to a phone. The deep link pre-fills 3 kWh at 0.05 Sepolia ETH.</p></div></div>
+            <div className="flex flex-wrap items-center gap-2"><select value={alertChannel} onChange={event => setAlertChannel(event.target.value as 'browser' | 'telegram')} className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm font-bold text-slate-700"><option value="browser">Browser push · free</option><option value="telegram">Telegram · free</option></select><button onClick={handleGridAlert} disabled={alertSending} className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-5 py-3 text-sm font-black text-white hover:bg-red-700 disabled:opacity-60"><Bell size={17} /> {alertSending ? 'Sending...' : 'Simulate critical peak'}</button></div>
+          </div>
+          {gridAlertActive && <div className="mt-5 grid gap-3 border-t border-red-200 pt-5 sm:grid-cols-3"><div><p className="text-[10px] font-black uppercase tracking-widest text-red-500">Node</p><p className="mt-1 font-bold text-slate-800">#104 · Microgrid East</p></div><div><p className="text-[10px] font-black uppercase tracking-widest text-red-500">Recommended action</p><p className="mt-1 font-bold text-slate-800">Sell 3 kWh · 0.05 ETH</p></div><div><p className="text-[10px] font-black uppercase tracking-widest text-red-500">Delivery</p><p className="mt-1 flex items-center gap-1 font-bold text-red-700"><ExternalLink size={14} /> {alertResult || 'Preparing trade link...'}</p></div></div>}
+        </section>
+
         <section className="mt-8 overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-950 via-teal-900 to-slate-900 p-6 text-white shadow-xl">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div className="max-w-2xl">
@@ -582,7 +650,8 @@ const Dashboard: React.FC<DashboardProps> = ({ account, onUseWallet }) => {
                     value={energyAmount}
                     onChange={(e) => setEnergyAmount(e.target.value)}
                     className="w-full px-4 py-2 rounded-md border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    placeholder="Enter amount"
+                    placeholder="Enter whole kWh amount"
+                    step="1"
                     min="1"
                   />
                 </div>

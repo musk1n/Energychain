@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { LineChart, Battery, Zap, Coins, ArrowLeftRight, TrendingUp, ShieldCheck, Sparkles, Target, ArrowUpRight } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { LineChart, Battery, Zap, Coins, ArrowLeftRight, TrendingUp, ShieldCheck, Sparkles, Target, ArrowUpRight, Cpu, Fingerprint, Radio } from 'lucide-react';
 import { getSmartMeterData } from '../utils/mockIoT';
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from '../config/contract';
 import { ethers } from 'ethers';
@@ -34,6 +34,15 @@ interface Transaction {
   hash?: string;
 }
 
+interface IoTProof {
+  deviceId: string;
+  timestamp: number;
+  consumption: number;
+  generation: number;
+  hash: string;
+  onChain: boolean;
+}
+
 const demoAccount = '0x7A42...91cE';
 const demoCredits: CarbonCreditListing[] = [
   { id: 'cc-18', seller: '0x39F1...42aB', amount: 18, price: 0.012 },
@@ -66,6 +75,8 @@ const Dashboard: React.FC<DashboardProps> = ({ account, onUseWallet }) => {
   const [availableEnergy, setAvailableEnergy] = useState<EnergyListing[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>(demoTransactions);
   const [toast, setToast] = useState('');
+  const [iotProof, setIotProof] = useState<IoTProof | null>(null);
+  const [isAnchoring, setIsAnchoring] = useState(false);
   const isDemo = account === 'demo-account';
   const energyBalance = meterData.generation - meterData.consumption;
   const hasSurplus = energyBalance >= 0;
@@ -89,6 +100,45 @@ const Dashboard: React.FC<DashboardProps> = ({ account, onUseWallet }) => {
     setToast('No matching energy is available yet. Check back after the next listing.');
   };
 
+  const handleCreateIoTProof = async () => {
+    setIsAnchoring(true);
+    const reading = {
+      deviceId: 'SOLAR-METER-07',
+      timestamp: Date.now(),
+      consumption: meterData.consumption,
+      generation: meterData.generation
+    };
+    try {
+      if (isDemo) {
+        const hash = ethers.id(JSON.stringify(reading));
+        setIotProof({ ...reading, hash, onChain: false });
+        setTransactions(prev => [{ id: hash, title: 'IoT reading simulated', detail: `${reading.deviceId} · ${reading.generation} kWh generated`, amount: 'Demo only', time: 'Just now', status: 'Completed', hash }, ...prev]);
+        setToast('Demo reading created locally. Connect MetaMask to write it to Sepolia.');
+        return;
+      }
+
+      const provider = new ethers.BrowserProvider(window.ethereum!);
+      const network = await provider.getNetwork();
+      if (network.chainId !== 11155111n) {
+        setToast('Please switch MetaMask to Sepolia before recording meter data.');
+        return;
+      }
+      const signer = await provider.getSigner();
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+      const tx = await contract.updateMeterData(reading.consumption, reading.generation);
+      setToast('Meter transaction submitted. Confirm it in MetaMask...');
+      await tx.wait();
+      setIotProof({ ...reading, hash: tx.hash, onChain: true });
+      setTransactions(prev => [{ id: tx.hash, title: 'IoT reading recorded on-chain', detail: `${reading.deviceId} · ${reading.generation} kWh generated`, amount: 'Confirmed', time: 'Just now', status: 'Completed', hash: tx.hash }, ...prev]);
+      setToast(`Meter data confirmed: ${tx.hash.slice(0, 12)}...`);
+    } catch (error) {
+      console.error('Error recording meter data:', error);
+      setToast('Meter transaction was cancelled or failed.');
+    } finally {
+      setIsAnchoring(false);
+    }
+  };
+
   useEffect(() => {
     const updateMeterData = () => {
       const data = getSmartMeterData();
@@ -104,11 +154,7 @@ const Dashboard: React.FC<DashboardProps> = ({ account, onUseWallet }) => {
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    loadBlockchainData();
-  }, [account]);
-
-  const loadBlockchainData = async () => {
+  const loadBlockchainData = useCallback(async () => {
     if (isDemo) {
       setMeterData({ consumption: 82, generation: 146, carbonCredits: 64 });
       setAvailableCredits(demoCredits);
@@ -116,7 +162,7 @@ const Dashboard: React.FC<DashboardProps> = ({ account, onUseWallet }) => {
       return;
     }
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum);
+      const provider = new ethers.BrowserProvider(window.ethereum!);
       const network = await provider.getNetwork();
       if (network.chainId !== 11155111n) {
         setToast('Please switch MetaMask to Sepolia before using live transactions.');
@@ -165,7 +211,11 @@ const Dashboard: React.FC<DashboardProps> = ({ account, onUseWallet }) => {
     } catch (error) {
       console.error('Error loading blockchain data:', error);
     }
-  };
+  }, [account, isDemo]);
+
+  useEffect(() => {
+    loadBlockchainData();
+  }, [loadBlockchainData]);
 
   const handleListCredits = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -181,7 +231,7 @@ const Dashboard: React.FC<DashboardProps> = ({ account, onUseWallet }) => {
       return;
     }
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum);
+      const provider = new ethers.BrowserProvider(window.ethereum!);
       const signer = await provider.getSigner();
       const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
 
@@ -214,7 +264,7 @@ const Dashboard: React.FC<DashboardProps> = ({ account, onUseWallet }) => {
       return;
     }
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum);
+      const provider = new ethers.BrowserProvider(window.ethereum!);
       const signer = await provider.getSigner();
       const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
 
@@ -245,7 +295,7 @@ const Dashboard: React.FC<DashboardProps> = ({ account, onUseWallet }) => {
       return;
     }
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum);
+      const provider = new ethers.BrowserProvider(window.ethereum!);
       const signer = await provider.getSigner();
       const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
 
@@ -285,7 +335,7 @@ const Dashboard: React.FC<DashboardProps> = ({ account, onUseWallet }) => {
       return;
     }
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum);
+      const provider = new ethers.BrowserProvider(window.ethereum!);
       const signer = await provider.getSigner();
       const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
 
@@ -359,6 +409,22 @@ const Dashboard: React.FC<DashboardProps> = ({ account, onUseWallet }) => {
               <div className="mb-3 flex items-end gap-2"><span className="text-5xl font-black">{bestEnergyMatch ? '94' : hasSurplus ? '88' : '—'}</span><span className="pb-1 text-sm text-emerald-200">/ 100</span></div>
               <button onClick={handleSmartMatch} className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-400 px-4 py-3 text-sm font-black text-emerald-950 transition hover:bg-emerald-300"><ArrowUpRight size={17} /> {hasSurplus ? 'Prepare smart listing' : 'Take smart match'}</button>
             </div>
+          </div>
+        </section>
+
+        <section className="mt-8 rounded-2xl border border-cyan-100 bg-white p-6 shadow-md">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-start gap-4">
+              <div className="rounded-2xl bg-cyan-50 p-3 text-cyan-700"><Cpu size={25} /></div>
+              <div><div className="mb-1 flex items-center gap-2"><h2 className="text-xl font-bold text-slate-900">IoT Meter Record</h2><span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-wider ${isDemo ? 'bg-amber-50 text-amber-700' : 'bg-cyan-50 text-cyan-700'}`}>{isDemo ? 'Simulation' : 'Sepolia'}</span></div><p className="max-w-2xl text-sm leading-6 text-slate-500">Record the current smart-meter reading on the EnergyTrading contract. In live mode, MetaMask signs the transaction and the contract emits a MeterDataUpdated event.</p></div>
+            </div>
+            <button onClick={handleCreateIoTProof} disabled={isAnchoring} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-cyan-700 px-5 py-3 text-sm font-black text-white transition hover:bg-cyan-800 disabled:cursor-wait disabled:opacity-60"><Fingerprint size={17} /> {isAnchoring ? 'Waiting for MetaMask...' : isDemo ? 'Simulate meter record' : 'Record on Sepolia'}</button>
+          </div>
+          <div className="mt-6 grid grid-cols-2 gap-3 border-t border-slate-100 pt-5 sm:grid-cols-4">
+            <div><p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Device</p><p className="mt-1 font-bold text-slate-800">SOLAR-METER-07</p></div>
+            <div><p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Generation</p><p className="mt-1 font-bold text-emerald-600">{meterData.generation} kWh</p></div>
+            <div><p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Status</p><p className={`mt-1 flex items-center gap-1 font-bold ${iotProof?.onChain ? 'text-cyan-700' : 'text-amber-600'}`}><Radio size={14} /> {iotProof?.onChain ? 'On-chain' : iotProof ? 'Local demo' : 'Awaiting record'}</p></div>
+            <div className="col-span-2 sm:col-span-1"><p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Reading fingerprint</p><p className="mt-1 truncate font-mono text-xs text-slate-600" title={iotProof?.hash}>{iotProof ? `${iotProof.hash.slice(0, 10)}...${iotProof.hash.slice(-8)}` : 'Not generated'}</p></div>
           </div>
         </section>
 

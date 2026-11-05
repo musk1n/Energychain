@@ -3,6 +3,8 @@
 EnergyChain is a blockchain-enabled renewable-energy exchange. It connects smart-meter readings, peer-to-peer energy trading, carbon credits, wallet transactions, and emergency grid alerts in one demonstrable workflow.
 
 Live deployment: [energychain-omega.vercel.app](https://energychain-omega.vercel.app/)
+Demo Video: [drive.mp4](https://drive.google.com/file/d/1o7zHFeGAJewYkiV1o1iT6XcT4LdA-4Qc/view?usp=drivesdk)
+Presentation: [energychain.pdf](https://github.com/musk1n/Energychain/blob/main/EnergyChain%20(2).pdf)
 
 ## Why It Matters
 
